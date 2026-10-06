@@ -44,7 +44,8 @@ HyperAI 免费档的硬性规则是**单次最长连续运行 2 小时**（官�
 
 - **JWT 30 天过期**（约 2026-11-05）。过期后 workflow 会报 `FATAL: 查询失败(多半是 JWT 过期...)` 变红，重新登录 hyperai 拿新 token 换掉 secret 即可。
 - **argo 域名每次重启都变**（quick tunnel 的临时域名），所以链接会换。想要固定域名得换 CF named tunnel。
-- **GitHub Actions 额度**：私有仓免费 2000 分钟/月。本 workflow 每小时跑一次 ≈ 720 次 + 每 2 小时一次重启 ≈ 1440 分钟/月，够用。想更密就改 cron，但要盯住额度（或把仓库设为 public，公开仓不限额）。
+- **GitHub Actions 额度**：本仓是 public，公开仓的 Actions **不限额**，所以每小时一跑随便造。想把检查搞得更密（比如每 20 分钟）直接改 cron 即可。
+- **本仓是公开的**：`current.txt` 里的 `vmess://` 链接、以及 `keepalive.py` 里的 `NEZHA_KEY` 都是公开可见的 —— 等于半个公开代理节点，谁刷到这个仓都能用。不想这样就把链接改成只推 Telegram、仓库里不留（加 `TG_BOT_TOKEN`/`TG_CHAT_ID`，再删掉写 `current.txt` 那几行）。
 - sb.sh 来自第三方（`main.ssss.nyc.mn`），装的东西以你的判断为准。
 
 ## 想调
