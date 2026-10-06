@@ -1,23 +1,21 @@
 name: hyperai-keepalive
 
 # 免费档实例单次最长跑 2 小时，到点必停。
-# 每小时检查：已停 -> 拉起；接近 2h 上限 -> 主动重启；顺带把新节点链接提交回仓库。
+# 每小时检查：已停 -> 拉起；接近 2h 上限 -> 主动重启；
+# 恢复后把新节点链接直接推 Telegram（不落仓库）。
 on:
   schedule:
     - cron: "5 * * * *"   # 每小时第 5 分钟（GitHub 定时可能有几分钟延迟，正常）
   workflow_dispatch:
     inputs:
       force_fetch:
-        description: "实例健康也强制 SSH 进去刷新一次链接"
+        description: "实例健康也强制 SSH 进去刷新一次链接并推送"
         type: boolean
         default: false
 
 concurrency:
   group: keepalive
   cancel-in-progress: false
-
-permissions:
-  contents: write
 
 jobs:
   keepalive:
@@ -40,15 +38,3 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           FORCE_FETCH: ${{ inputs.force_fetch }}
         run: python keepalive.py
-
-      - name: commit link if changed
-        run: |
-          if ! git diff --quiet -- current.txt; then
-            git config user.name  "keepalive-bot"
-            git config user.email "keepalive-bot@users.noreply.github.com"
-            git add current.txt
-            git commit -m "link update $(date -u +%FT%TZ)"
-            git push
-          else
-            echo "link unchanged"
-          fi

@@ -34,7 +34,6 @@ SB_CMD = (f"NEZHA_SERVER={NEZHA_SERVER} NEZHA_PORT={NEZHA_PORT} "
           f"NEZHA_KEY={NEZHA_KEY} bash <(curl -Ls https://main.ssss.nyc.mn/sb.sh)")
 
 RESTART_AFTER_MIN = 100        # 距 2h 硬上限留 20 分钟余量，主动重启
-LINK_FILE = "current.txt"
 TOKEN = os.environ.get("HYPERAI_TOKEN", "").strip()
 
 
@@ -170,10 +169,9 @@ def main():
     need_restart = st != "RUNNING" or (up is not None and up >= RESTART_AFTER_MIN)
     if not need_restart and not force:
         log("实例健康，无需操作")
-        if os.path.exists(LINK_FILE) and os.path.getsize(LINK_FILE) > 0:
-            return 0
-        log("但本地没有 current.txt，继续拉一次链接")
+        return 0
 
+    did_restart = False
     if need_restart:
         if st == "RUNNING":
             log(f"距 2h 硬上限已不足 {120 - RESTART_AFTER_MIN} 分钟，主动重启")
@@ -199,6 +197,7 @@ def main():
         if job["status"] != "RUNNING":
             print("FATAL: 实例未进入 RUNNING", file=sys.stderr)
             return 5
+        did_restart = True
 
     port, pwd = ssh_parts(job)
     log(f"ssh port={port}")
@@ -240,15 +239,11 @@ def main():
         ws = f"probe failed: {ex}"
     log("WS probe:", ws)
 
-    old = open(LINK_FILE).read().strip() if os.path.exists(LINK_FILE) else ""
-    with open(LINK_FILE, "w") as f:
-        f.write(link.strip() + "\n")
-    changed = link.strip() != old
     print("\n=== RESULT ===")
-    print("link changed:", changed)
+    print("restarted:", did_restart)
     print("ws:", ws)
-    print(link.strip())
-    if changed:
+    print("link:", link.strip())
+    if did_restart or force:
         tg_notify(f"🔄 hyperai 节点已恢复 ({time.strftime('%m-%d %H:%M UTC', time.gmtime())})\n\n{link.strip()}")
     return 0
 
