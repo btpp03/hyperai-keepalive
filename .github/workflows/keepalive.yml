@@ -1,0 +1,48 @@
+name: hyperai-keepalive
+
+# 免费档实例单次最长跑 2 小时，到点必停。
+# 每小时检查：已停 -> 拉起；接近 2h 上限 -> 主动重启；顺带把新节点链接提交回仓库。
+on:
+  schedule:
+    - cron: "5 * * * *"   # 每小时第 5 分钟（GitHub 定时可能有几分钟延迟，正常）
+  workflow_dispatch: {}
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install deps
+        run: pip install --quiet paramiko
+
+      - name: run keepalive
+        env:
+          HYPERAI_TOKEN: ${{ secrets.HYPERAI_TOKEN }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python keepalive.py
+
+      - name: commit link if changed
+        run: |
+          if ! git diff --quiet -- current.txt; then
+            git config user.name  "keepalive-bot"
+            git config user.email "keepalive-bot@users.noreply.github.com"
+            git add current.txt
+            git commit -m "link update $(date -u +%FT%TZ)"
+            git push
+          else
+            echo "link unchanged"
+          fi
