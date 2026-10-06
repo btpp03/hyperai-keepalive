@@ -5,7 +5,12 @@ name: hyperai-keepalive
 on:
   schedule:
     - cron: "5 * * * *"   # 每小时第 5 分钟（GitHub 定时可能有几分钟延迟，正常）
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force_fetch:
+        description: "实例健康也强制 SSH 进去刷新一次链接"
+        type: boolean
+        default: false
 
 concurrency:
   group: keepalive
@@ -33,6 +38,7 @@ jobs:
           HYPERAI_TOKEN: ${{ secrets.HYPERAI_TOKEN }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          FORCE_FETCH: ${{ inputs.force_fetch }}
         run: python keepalive.py
 
       - name: commit link if changed

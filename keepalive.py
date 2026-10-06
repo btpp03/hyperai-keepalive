@@ -166,8 +166,9 @@ def main():
     st, up = job["status"], uptime_min(job)
     log(f"status={st} uptime={None if up is None else round(up, 1)}min")
 
+    force = os.environ.get("FORCE_FETCH", "").strip().lower() in ("1", "true", "yes")
     need_restart = st != "RUNNING" or (up is not None and up >= RESTART_AFTER_MIN)
-    if not need_restart:
+    if not need_restart and not force:
         log("实例健康，无需操作")
         if os.path.exists(LINK_FILE) and os.path.getsize(LINK_FILE) > 0:
             return 0
