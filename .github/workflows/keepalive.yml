@@ -5,7 +5,10 @@ name: hyperai-keepalive
 # 恢复后把新节点链接直接推 Telegram（不落仓库）。
 on:
   schedule:
-    - cron: "5 * * * *"   # 每小时第 5 分钟（GitHub 定时可能有几分钟延迟，正常）
+    # 每 15 分钟一查。免费档 2h 硬砍机，15 分钟的粒度保证在 [100,120) 分钟内
+    # 必有一次检查 -> 主动重启总能在被砍前触发，空窗 ≈ 1~3 分钟。
+    # 公开仓 Actions 不限额，随便跑。
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       force_fetch:
