@@ -67,7 +67,25 @@ def restart():
            "dataBindings": [], "useRDMADevices": False, "ports": []}
     d = gql(m, {"username": USER_ID, "jobId": JOB_ID, "input": inp})
     if "errors" in d:
-        raise RuntimeError("restart: " + json.dumps(d["errors"])[:300])
+        raise RuntimeError("restart: " + json.dumps(d["errors"], ensure_ascii=False)[:300])
+
+
+# 免费 CPU 池是"抢座制"：满载时平台直接拒绝重启，等别人下线才有空位。
+# 这种错是暂态的，不能按"失败"处理（否则每 10 分钟一次红色 run + 失败邮件刷屏）。
+CAPACITY_MARKERS = ("超出集群限制", "FAILED_PRECONDITION", "集群", "exceed")
+
+
+def is_capacity_error(e):
+    s = str(e)
+    return any(m in s for m in CAPACITY_MARKERS)
+
+
+def capacity_notify():
+    """集群满时最多每小时提示一次（靠分钟数做无状态节流，cron 在 :00/:10/.../:50）"""
+    if time.localtime().tm_min >= 6:
+        return
+    tg_notify("⚠️ hyperai 节点下线中：免费 CPU 池满（平台返回\"资源 [free-cpu] 超出集群限制\"），"
+              "抢不到座位。每 10 分钟自动重试，抢到会自动恢复并把新链接推给你。")
 
 
 def uptime_min(job):
@@ -180,8 +198,12 @@ def main():
         try:
             restart()
         except Exception as e:
+            if is_capacity_error(e):
+                log("集群满(free-cpu 无空位)，本次抢座失败，下个 tick 重试")
+                capacity_notify()
+                return 0
             if st == "RUNNING":
-                log("运行中不接受重启，跳过本次:", str(e)[:200])
+                log("重启未被接受，跳过本次:", str(e)[:200])
                 return 0
             print(f"FATAL: 重启失败 {e}", file=sys.stderr)
             return 4
