@@ -266,7 +266,7 @@ def main():
     print("ws:", ws)
     print("link:", link.strip())
     if did_restart or force:
-        tg_notify(f"🔄 hyperai 节点已恢复 ({time.strftime('%m-%d %H:%M UTC', time.gmtime())})\n\n{link.strip()}")
+        tg_notify(f"🔄 hyperai 节点已恢复 ({time.strftime('%m-%d %H:%M', time.localtime())} 北京)\n\n{link.strip()}")
     return 0
 
 
