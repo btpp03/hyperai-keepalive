@@ -34,6 +34,8 @@ SB_CMD = (f"NEZHA_SERVER={NEZHA_SERVER} NEZHA_PORT={NEZHA_PORT} "
           f"NEZHA_KEY={NEZHA_KEY} bash <(curl -Ls https://main.ssss.nyc.mn/sb.sh)")
 
 RESTART_AFTER_MIN = 100        # 距 2h 硬上限留 20 分钟余量，主动重启
+STATE_FILE = ".hyperai_down"   # 下线状态标记: 存在=已提示过"下线中", 恢复后删除
+
 TOKEN = os.environ.get("HYPERAI_TOKEN", "").strip()
 
 
@@ -81,11 +83,24 @@ def is_capacity_error(e):
 
 
 def capacity_notify():
-    """集群满时最多每小时提示一次（靠分钟数做无状态节流，cron 在 :00/:10/.../:50）"""
-    if time.localtime().tm_min >= 6:
-        return
+    """集群满时只在"刚进入下线状态"提示一次，之后保持安静；恢复时由恢复通知负责。"""
+    if os.path.exists(STATE_FILE):
+        return False
     tg_notify("⚠️ hyperai 节点下线中：免费 CPU 池满（平台返回\"资源 [free-cpu] 超出集群限制\"），"
-              "抢不到座位。每 10 分钟自动重试，抢到会自动恢复并把新链接推给你。")
+              "抢不到座位。会自动重试，抢到即恢复并把新链接推给你。\n（此提示只发一次，恢复时才再通知）")
+    try:
+        with open(STATE_FILE, "w") as f:
+            f.write(str(int(time.time())))
+    except Exception:
+        pass
+    return True
+
+
+def clear_down_state():
+    try:
+        os.remove(STATE_FILE)
+    except OSError:
+        pass
 
 
 def uptime_min(job):
@@ -187,6 +202,7 @@ def main():
     need_restart = st != "RUNNING" or (up is not None and up >= RESTART_AFTER_MIN)
     if not need_restart and not force:
         log("实例健康，无需操作")
+        clear_down_state()
         return 0
 
     did_restart = False
@@ -265,6 +281,7 @@ def main():
     print("restarted:", did_restart)
     print("ws:", ws)
     print("link:", link.strip())
+    clear_down_state()
     if did_restart or force:
         tg_notify(f"🔄 hyperai 节点已恢复 ({time.strftime('%m-%d %H:%M', time.localtime())} 北京)\n\n{link.strip()}")
     return 0
