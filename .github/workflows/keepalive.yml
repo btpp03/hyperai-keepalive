@@ -20,6 +20,9 @@ concurrency:
   group: keepalive
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   keepalive:
     runs-on: ubuntu-latest
@@ -42,3 +45,17 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           FORCE_FETCH: ${{ inputs.force_fetch }}
         run: python keepalive.py
+
+      # 持久化"下线中"标记, 保证同一段下线期只推一次提示 (恢复时删除)
+      - name: persist down-state
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A .hyperai_down 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(hyperai): update down-state" || true
+            git push || true
+          else
+            echo "down-state unchanged"
+          fi
